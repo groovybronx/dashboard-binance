@@ -22,6 +22,6 @@ module.exports = (server) => { // Prend le serveur HTTP Express en argument
     });
   });
 
-  console.log('WebSocket Server Backend démarré');
+  console.log('WebSocket Server Backend initialisé');
   return wss; // Retourne l'instance du serveur WebSocket si vous en avez besoin ailleurs
 };

@@ -1,11 +1,21 @@
 const express = require('express');
 const restApi = require('./api/rest');
-const wsStream = require('./websocket/ws_stream'); // Modification du nom d'import
-const websocketServer = require('./websocket/websocket_server'); // Importez le serveur WebSocket
+const wsStream = require('./websocket/ws_stream');
+const websocketServer = require('./websocket/websocket_server');
+const WebSocket = require('ws'); // Importez WebSocket pour gérer les états de connexion
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Démarrage du serveur HTTP
+const server = app.listen(port, () => {
+  console.log(`Serveur backend actif sur http://localhost:${port}`);
+});
+
+// Démarrage du serveur WebSocket
+const wss = websocketServer(server);
+
+// Route pour récupérer le temps serveur
 app.get('/api/serverTime', async (req, res) => {
   try {
     const serverTime = await restApi.getServerTime();
@@ -15,13 +25,7 @@ app.get('/api/serverTime', async (req, res) => {
   }
 });
 
-// Démarrage du WebSocket Server (attaché au serveur HTTP Express)
-const wss = websocketServer(app.listen(port, () => { // Démarrage du serveur HTTP et attachement du WS
-  console.log(`Serveur backend actif sur http://localhost:${port}`);
-  console.log('WebSocket Server Backend démarré');
-}));
-
-// Gestion du WebSocket AggTrade (modifié pour envoyer les données au WebSocket Server)
+// Gestion du WebSocket AggTrade
 let aggTradeWebSocket = null;
 
 app.get('/ws/start', (req, res) => {
@@ -29,15 +33,15 @@ app.get('/ws/start', (req, res) => {
 
   if (!aggTradeWebSocket) {
     aggTradeWebSocket = wsStream.subscribeToAggTradeStream(symbol, (data) => {
-      console.log('**[BACKEND LOG]** Données AggTrade reçues de Binance:', data); // LOG IMPORTANT - RECEPTION DE BINANCE
+      console.log('**[BACKEND LOG]** Données AggTrade reçues de Binance:', data);
 
-      // **NOUVEAU : Envoyer les données à TOUS les clients frontend connectés via WebSocket**
-      wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-          console.log('**[BACKEND LOG]** Envoi des données AggTrade au Frontend:', data); // LOG IMPORTANT - ENVOI AU FRONTEND
-          client.send(JSON.stringify(data));
+      // Envoyer les données à TOUS les clients frontend connectés via WebSocket
+      wss.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) { // Vérifier que la connexion est ouverte
+          console.log('**[BACKEND LOG]** Envoi des données AggTrade au Frontend:', data);
+          client.send(JSON.stringify(data)); // Convertir les données en JSON et les envoyer
         } else {
-          console.log('**[BACKEND LOG]** Client WebSocket non prêt pour l\'envoi.'); // Log si le client n'est pas prêt
+          console.log('**[BACKEND LOG]** Client WebSocket non prêt pour l\'envoi.');
         }
       });
     });
@@ -45,16 +49,14 @@ app.get('/ws/start', (req, res) => {
 
   res.json({
     message: `Stream AggTrade démarré pour ${symbol}`,
-    symbol: symbol
+    symbol: symbol,
   });
 });
 
 app.get('/ws/stop', (req, res) => {
   if (aggTradeWebSocket) {
-    aggTradeWebSocket(); // Appel de la fonction de fermeture
+    aggTradeWebSocket(); // Appeler la fonction de fermeture retournée par wsStream.subscribeToAggTradeStream
     aggTradeWebSocket = null;
   }
-  res.json({ message: 'Stream arrêté' });
+  res.json({ message: 'Stream AggTrade arrêté' });
 });
-  
-  

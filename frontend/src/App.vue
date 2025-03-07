@@ -6,7 +6,7 @@
       :wsApiStatus="connectionStatuses.wsApiStatus"
       :wsStreamStatus="connectionStatuses.wsStreamStatus"
     />
-    <DataDisplay :data="aggTradeData" /> 
+    <DataDisplay :data="aggTradeData" />
   </div>
 </template>
 
@@ -28,24 +28,19 @@ export default {
         wsApiStatus: 'Non connecté',
         wsStreamStatus: 'Non connecté'
       },
-      aggTradeData: null, // Pour stocker les données AggTrade reçues du WebSocket
-      websocket: null // Instance WebSocket Frontend -> Backend
+      aggTradeData: null,
+      websocket: null
     }
   },
   mounted() {
     this.checkServerTime();
     this.startWebsockets();
-    this.setupWebSocketConnection(); // Établir la connexion WebSocket Frontend -> Backend
+    this.setupWebSocketConnection();
   },
   methods: {
     async checkServerTime() {
       try {
-        const response = await axios.get('/api/serverTime');        if (response.status === 200) {
-                  console.log('Connexion à l\'API REST réussie');
-                } else {
-                  console.error('Erreur de connexion à l\'API REST: Statut', response.status);
-                }
-        
+        await axios.get('/api/serverTime');
         this.connectionStatuses.restStatus = 'Connecté';
       } catch (error) {
         console.error('Erreur de connexion à l\'API REST:', error);
@@ -53,11 +48,11 @@ export default {
       }
     },
     startWebsockets() {
-      axios.get('/ws/start') // Démarre le stream Binance côté backend
+      axios.get('/ws/start')
         .then(response => {
           console.log(response.data.message);
-          this.connectionStatuses.wsApiStatus = 'Démarré (Backend Stream)'; // Adapter statut
-          this.connectionStatuses.wsStreamStatus = 'Connecté (Backend Stream)'; // Adapter statut
+          this.connectionStatuses.wsApiStatus = 'Démarré (Backend Stream)';
+          this.connectionStatuses.wsStreamStatus = 'Connecté (Backend Stream)';
         })
         .catch(error => {
           console.error('Erreur démarrage WebSockets:', error);
@@ -66,31 +61,37 @@ export default {
         });
     },
     setupWebSocketConnection() {
-      // Adresse WebSocket du backend (à adapter si votre backend est sur un autre port ou hôte)
-      const websocketURL = 'ws://localhost:3000'; // Même port que le serveur HTTP Express
+      const websocketURL = 'ws://localhost:3000';
 
-      this.websocket = new WebSocket(websocketURL); // Création de l'instance WebSocket
+      this.websocket = new WebSocket(websocketURL);
 
       this.websocket.onopen = () => {
-        console.log('WebSocket Frontend connecté au Backend Server');
-        this.connectionStatuses.wsApiStatus = 'Connecté (Frontend <-> Backend)'; // Adapter statut
+        console.log('**[FRONTEND LOG]** WebSocket Frontend connecté au Backend Server'); // LOG IMPORTANT - CONNEXION OUVERTE
+        this.connectionStatuses.wsApiStatus = 'Connecté (Frontend <-> Backend)';
       };
 
       this.websocket.onmessage = (event) => {
-        const data = JSON.parse(event.data); // Parser les données JSON reçues du backend
-        console.log('Données WebSocket reçues du Backend:', data); // Log dans la console du frontend (pour vérifier)
-        this.aggTradeData = data; // Mettre à jour les données AggTrade pour l'affichage dans DataDisplay
+        console.log('**[FRONTEND LOG]** Données WebSocket brutes reçues du Backend:', event.data); // LOG IMPORTANT - RECEPTION BRUTE
+
+        try {
+          const data = JSON.parse(event.data);
+          console.log('**[FRONTEND LOG]** Données WebSocket parsées (JSON):', data); // LOG IMPORTANT - DONNEES PARSEES
+          this.aggTradeData = data;
+        } catch (error) {
+          console.error('**[FRONTEND LOG]** Erreur lors du parsing JSON des données WebSocket:', error); // LOG IMPORTANT - ERREUR DE PARSING
+          console.error('Données brutes non parsables:', event.data); // Afficher les données brutes qui posent problème
+        }
       };
 
       this.websocket.onclose = () => {
         console.log('WebSocket Frontend déconnecté du Backend Server');
-        this.connectionStatuses.wsApiStatus = 'Déconnecté (Frontend <-> Backend)'; // Adapter statut
-        this.websocket = null; // Réinitialiser l'instance WebSocket
+        this.connectionStatuses.wsApiStatus = 'Déconnecté (Frontend <-> Backend)';
+        this.websocket = null;
       };
 
       this.websocket.onerror = (error) => {
-        console.error('Erreur WebSocket Frontend:', error);
-        this.connectionStatuses.wsApiStatus = 'Erreur (Frontend <-> Backend)'; // Adapter statut
+        console.error('**[FRONTEND LOG]** Erreur WebSocket Frontend:', error); // LOG IMPORTANT - ERREUR WS FRONTEND
+        this.connectionStatuses.wsApiStatus = 'Erreur (Frontend <-> Backend)';
       };
     }
   }

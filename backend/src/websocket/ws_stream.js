@@ -11,13 +11,15 @@ const wsClient = new Spot(
 
 module.exports = {
   subscribeToAggTradeStream: (symbol, callback) => {
-    const ws = wsClient.aggTrades(symbol.toLowerCase(), {
+    const closeStream = wsClient.aggTrades(symbol.toLowerCase(), {
       onMessage: (data) => callback(data),
-      onOpen: () => console.log(`WebSocket ouvert pour ${symbol}`),
-      onClose: () => console.log(`WebSocket fermé pour ${symbol}`),
-      onError: (err) => console.error(`Erreur WebSocket pour ${symbol}:`, err)
+      onOpen: () => {
+        console.log('**[WS_STREAM LOG]** WebSocket to Binance OPEN for symbol:', symbol); // Add log in onOpen
+      },
+      onError: (err) => {
+        console.error('**[WS_STREAM LOG]** WebSocket to Binance ERROR for symbol:', symbol, err); // Add log in onError
+      }
     });
-
-    return ws; // Retourne l'objet pour appeler .close() plus tard
+    return closeStream;
   }
 };
